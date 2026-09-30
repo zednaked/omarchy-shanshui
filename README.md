@@ -172,8 +172,9 @@ omarchy-shell zed.shanshui.menu toggle
   `shell.json`, the wallpaper or any other config of yours.
 - **Disk writes go through `gerar.js`:**
   - Each folder is opened by walking down from `$HOME` one component at a time,
-    refusing a symlink anywhere on the way (`O_DIRECTORY | O_NOFOLLOW`, then
-    `/proc/self/fd/N/name` as `openat`).
+    refusing a symlink anywhere on the way and any component that someone
+    else can write to (`O_DIRECTORY | O_NOFOLLOW`, owner and mode checked on
+    the descriptor, then `/proc/self/fd/N/name` as `openat`).
   - Each file is written to a random temporary name
     (`O_CREAT | O_EXCL | O_NOFOLLOW`), fsynced, and renamed through the same
     directory descriptor.
@@ -182,8 +183,8 @@ omarchy-shell zed.shanshui.menu toggle
   shell. There is no network access, no binary in the repo, and no service
   outside the shell.
 - `make hostil` shows what it refuses: a symlink on the path, a folder outside
-  `$HOME`, `..`, a seed that is not a number, a link or hardlink put where a
-  strip goes.
+  `$HOME`, `..`, a seed that is not a number, a link, hardlink or FIFO put where
+  a strip goes, a group- or world-writable folder on the path.
 
 ## Files
 

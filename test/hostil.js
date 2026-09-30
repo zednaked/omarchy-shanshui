@@ -57,5 +57,22 @@ const sobrou = fs.readdirSync(cache).sort();
 confere(sobrou.join(",") === "meu.txt,o_1_0_64x64.png,q_1_0_64x64.png", "limpar: so faixas fora da lista saem (" + sobrou.join(" ") + ")");
 confere(fs.readFileSync(vitima, "utf8") === "intacto", "limpar nao segue link");
 
+// FIFO no lugar da faixa: nao trava (O_NONBLOCK) e a faixa e refeita.
+const { spawnSync } = require("child_process");
+spawnSync("mkfifo", [path.join(cache, "q_4_0_64x64.png")]);
+fs.writeFileSync(path.join(cache, "o_4_0_64x64.png"), "x");
+const t0 = Date.now();
+const rf = gerar(home, ["faixa", "--dir", cache, "--seed", "4", "--k", "0", "--w", "64", "--h", "64"], { timeout: 30000 });
+confere(rf.status === 0 && fs.statSync(path.join(cache, "q_4_0_64x64.png")).isFile(), "FIFO no lugar da faixa: nao trava, e vira a faixa (" + (Date.now() - t0) + " ms)");
+
+// Componente do caminho em que outros podem escrever: recusa.
+const aberta = path.join(home, "aberta");
+fs.mkdirSync(aberta);
+fs.chmodSync(aberta, 0o777);
+confere(gerar(home, ["preparar", "--dir", path.join(aberta, "zed.shanshui")]).status !== 0, "pasta com escrita para outros no caminho: recusa");
+confere(!fs.existsSync(path.join(aberta, "zed.shanshui")), "e nao cria nada dentro dela");
+fs.chmodSync(aberta, 0o770);
+confere(gerar(home, ["preparar", "--dir", path.join(aberta, "zed.shanshui")]).status !== 0, "pasta com escrita para o grupo: recusa");
+
 fs.rmSync(home, { recursive: true, force: true });
 fim("hostil");

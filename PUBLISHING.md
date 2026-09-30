@@ -32,15 +32,19 @@ este plugin já nasce atendendo:
 2. **Temporário previsível, symlink no caminho, checagem separada do uso.** No
    `gerar.js`:
    - a pasta é aberta descendo do `$HOME` por descritor
-     (`O_DIRECTORY | O_NOFOLLOW` em cada componente, dono conferido no fd);
+     (`O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC` em cada componente; dono conferido
+     no fd, e componente com escrita para grupo ou outros é recusado, como o
+     revisor pediu no Omahold);
    - o arquivo é criado com `O_CREAT | O_EXCL | O_NOFOLLOW` e nome aleatório,
      com `fsync`, depois `rename` pelo mesmo fd e `fsync` do diretório;
-   - o reaproveitamento confere o arquivo no fd (`regular`, dono, `nlink == 1`).
+   - o reaproveitamento confere o arquivo no fd (`regular`, dono, `nlink == 1`),
+     aberto com `O_NONBLOCK` para que um FIFO falhe em vez de travar.
 
    O Node não tem `openat`: `/proc/self/fd/N/nome` resolve o nome a partir do
    diretório já aberto, que é a mesma garantia. O `make hostil` cobre symlink no
-   meio do caminho, pasta final que é link, link e hardlink no lugar da faixa,
-   pasta fora do `$HOME`, e `..`.
+   meio do caminho, pasta final que é link, link, hardlink e FIFO no lugar da
+   faixa, pasta com escrita para grupo ou outros, pasta fora do `$HOME`, e `..`
+   — 22 verificações.
 3. **Lançamento com ambiente herdado.** Todo `Process` tem
    `clearEnvironment: true` e `environment: { PATH, HOME }`. Não há
    `execDetached`. O `rsvg-convert` é chamado pelo caminho absoluto, com

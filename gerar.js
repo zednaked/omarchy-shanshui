@@ -31,7 +31,7 @@ const vm = require("vm");
 const crypto = require("crypto");
 const { spawnSync } = require("child_process");
 
-const { O_RDONLY, O_WRONLY, O_CREAT, O_EXCL, O_NOFOLLOW, O_DIRECTORY } = fs.constants;
+const { O_RDONLY, O_WRONLY, O_CREAT, O_EXCL, O_NOFOLLOW, O_DIRECTORY, O_NONBLOCK, O_CLOEXEC } = fs.constants;
 
 function falhar(msg, codigo) {
   process.stderr.write("gerar.js: " + msg + "\n");
@@ -72,7 +72,9 @@ function noFd(fd, nome) {
 }
 
 // Abre `abs` descendo do $HOME. Cada componente: O_DIRECTORY | O_NOFOLLOW,
-// dono tem que ser quem roda. Criar, se pedido, e com 0700.
+// dono tem que ser quem roda, e ninguem mais pode escrever nele (grupo ou
+// outros com w: outro usuario trocaria o que vem abaixo). Criar, se pedido, e
+// com 0700.
 function abrirPasta(abs, criar) {
   const home = process.env.HOME;
   if (!home || !path.isAbsolute(home)) falhar("HOME ausente");
@@ -85,16 +87,20 @@ function abrirPasta(abs, criar) {
       if (!comp || comp === "." || comp === "..") falhar("pasta invalida: " + abs);
       let novo;
       try {
-        novo = fs.openSync(noFd(fd, comp), O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+        novo = fs.openSync(noFd(fd, comp), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
       } catch (e) {
         if (e.code !== "ENOENT" || !criar) throw e;
         fs.mkdirSync(noFd(fd, comp), 0o700);
-        novo = fs.openSync(noFd(fd, comp), O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+        novo = fs.openSync(noFd(fd, comp), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
       }
       const st = fs.fstatSync(novo);
       if (!st.isDirectory() || st.uid !== EU) {
         fs.closeSync(novo);
         falhar("pasta recusada (nao e minha): " + abs);
+      }
+      if (st.mode & 0o022) {
+        fs.closeSync(novo);
+        falhar("pasta recusada (outros podem escrever nela): " + abs);
       }
       fs.closeSync(fd);
       fd = novo;
@@ -108,10 +114,12 @@ function abrirPasta(abs, criar) {
 }
 
 // Arquivo regular, meu, sem outro nome (hardlink), aberto sem seguir symlink.
+// O_NONBLOCK: um FIFO posto no lugar falha no teste de regular em vez de
+// travar a abertura.
 function existeValido(dfd, nome) {
   let f;
   try {
-    f = fs.openSync(noFd(dfd, nome), O_RDONLY | O_NOFOLLOW);
+    f = fs.openSync(noFd(dfd, nome), O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
   } catch (e) {
     return false;
   }
@@ -125,7 +133,7 @@ function existeValido(dfd, nome) {
 
 function gravar(dfd, nome, dados) {
   const tmp = ".tmp-" + crypto.randomBytes(8).toString("hex");
-  const f = fs.openSync(noFd(dfd, tmp), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600);
+  const f = fs.openSync(noFd(dfd, tmp), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600);
   try {
     fs.writeSync(f, dados);
     fs.fsyncSync(f);

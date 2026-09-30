@@ -185,7 +185,8 @@ omarchy-shell zed.shanshui.menu toggle
   `shell.json`, no wallpaper nem em outra config sua.
 - **Gravação em disco passa pelo `gerar.js`:**
   - Cada pasta é aberta descendo do `$HOME` componente por componente, recusando
-    symlink em qualquer ponto (`O_DIRECTORY | O_NOFOLLOW`, e
+    symlink em qualquer ponto e componente em que outro possa escrever
+    (`O_DIRECTORY | O_NOFOLLOW`, dono e modo conferidos no descritor, e
     `/proc/self/fd/N/nome` fazendo as vezes de `openat`).
   - Cada arquivo é escrito num temporário de nome aleatório
     (`O_CREAT | O_EXCL | O_NOFOLLOW`), com fsync, e renomeado pelo mesmo
@@ -194,8 +195,8 @@ omarchy-shell zed.shanshui.menu toggle
 - **Processos:** todos rodam com ambiente limpo (`PATH`, `HOME`) e sem shell.
   Não há rede, binário no repositório nem serviço fora do shell.
 - O `make hostil` mostra o que ele recusa: symlink no caminho, pasta fora do
-  `$HOME`, `..`, semente que não é número, link ou hardlink posto onde vai uma
-  faixa.
+  `$HOME`, `..`, semente que não é número, link, hardlink ou FIFO posto onde
+  vai uma faixa, pasta com escrita para o grupo ou para outros no caminho.
 
 ## Arquivos
 
