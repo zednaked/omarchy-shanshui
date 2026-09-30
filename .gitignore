@@ -1,0 +1,4 @@
+# As faixas moram em ~/.cache/zed.shanshui, nunca aqui.
+*.tmp
+.tmp-*
+*.bak.*

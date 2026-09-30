@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "zed.shanshui",
+  "name": "Shan Shui",
+  "version": "1.0.0",
+  "author": "ZeD",
+  "license": "MIT",
+  "homepage": "https://github.com/zednaked/omarchy-shanshui",
+  "description": "An endless Chinese landscape scroll painted on your desktop, stroke by stroke, left to right, in your theme's colors. Built on LingDong-'s {Shan, Shui}*. The drawing happens outside the shell at low priority; on screen it is one small shader. Paused, off or under a fullscreen window it costs nothing. English or Portuguese.",
+  "kinds": ["service", "bar-widget"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Shan Shui",
+    "description": "山 in the bar: click opens the menu (pause, new landscape, speed, motion, colors, language); right click turns it on and off",
+    "category": "Desktop",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
