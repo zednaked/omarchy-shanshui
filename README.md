@@ -67,10 +67,10 @@ rm -rf ~/.config/zed.shanshui ~/.local/state/zed.shanshui ~/.cache/zed.shanshui
 
 | | why | on Omarchy |
 |---|---|---|
-| `nodejs` | runs the landscape generator, outside the shell | **not installed by default:** `omarchy pkg add nodejs`, or a `node` from mise |
+| `nodejs` | runs the landscape generator, outside the shell | **not installed by default:** install the `nodejs` package with your package manager, or use a `node` from mise |
 | `librsvg` (`rsvg-convert`) | turns the generated SVG into images | already there |
 
-When one is missing, the menu says which one and how to install it.
+When one is missing, the menu says which one.
 
 ---
 

@@ -64,10 +64,10 @@ rm -rf ~/.config/zed.shanshui ~/.local/state/zed.shanshui ~/.cache/zed.shanshui
 
 | | para quê | no Omarchy |
 |---|---|---|
-| `nodejs` | roda o gerador da paisagem, fora do shell | **não vem instalado:** `omarchy pkg add nodejs`, ou um `node` do mise |
+| `nodejs` | roda o gerador da paisagem, fora do shell | **não vem instalado:** instale o pacote `nodejs` pelo gerenciador de pacotes, ou use um `node` do mise |
 | `librsvg` (`rsvg-convert`) | transforma o SVG gerado em imagem | já vem |
 
-Se faltar um, o menu diz qual é e como instalar.
+Se faltar um, o menu diz qual.
 
 ---
 

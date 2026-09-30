@@ -43,9 +43,9 @@ Panel {
 
   // O que falta instalar, quando falta.
   readonly property string ajuda: Paisagem.erro === "node"
-    ? Paisagem.t("Instale com: omarchy pkg add nodejs", "Install it with: omarchy pkg add nodejs")
+    ? Paisagem.t("Falta o pacote nodejs (veja o README).", "The nodejs package is missing (see the README).")
     : Paisagem.erro === "rsvg"
-      ? Paisagem.t("Instale com: omarchy pkg add librsvg", "Install it with: omarchy pkg add librsvg")
+      ? Paisagem.t("Falta o pacote librsvg (veja o README).", "The librsvg package is missing (see the README).")
       : ""
 
   BarIconButton {
