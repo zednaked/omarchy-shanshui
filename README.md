@@ -92,6 +92,8 @@ Click 山 in the bar:
   - **Invert colors** swaps ink and paper in any of the three.
 
   Changing the theme repaints instantly.
+
+  ![Rice paper: dark ink on cream paper, painting left to right](papel.gif)
 - **Language**: Português or English.
 
 ## How it works

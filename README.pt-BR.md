@@ -90,6 +90,8 @@ Clique no 山 da barra:
   - **Inverter cores** troca tinta e papel em qualquer uma das três.
 
   Trocar de tema repinta na hora.
+
+  ![Papel de arroz: tinta escura em papel creme, pintando da esquerda para a direita](papel.gif)
 - **Idioma**: Português ou English.
 
 No rodapé, o crédito ao LingDong- e a assinatura.
