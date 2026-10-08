@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 // 山 na barra. Clique abre o menu; o botao direito liga e desliga direto.
@@ -9,7 +10,7 @@ Panel {
   moduleName: "zed.shanshui"
   ipcTarget: "zed.shanshui.menu"
 
-  readonly property color fg: bar ? bar.barForeground : Color.foreground
+  readonly property color fg: bar ? bar.barForeground : Commons.Color.foreground
   readonly property int barSlot: Style.bar.iconFont + Style.space(12)
   implicitWidth: bar && bar.vertical ? (bar ? bar.barSize : Style.bar.sizeHorizontal) : barSlot
   implicitHeight: bar && bar.vertical ? barSlot : (bar ? bar.barSize : Style.bar.sizeHorizontal)

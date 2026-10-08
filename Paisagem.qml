@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
 import qs.Commons
+import qs.Commons as Commons
 
 // O rolo sendo pintado da esquerda para a direita, sem fim.
 //
@@ -118,8 +119,8 @@ Singleton {
   function cor(nome, reserva) {
     var n = String(nome || "")
     if (/^#[0-9a-fA-F]{6}$/.test(n)) return n
-    if (["foreground", "background", "accent", "muted", "urgent"].indexOf(n) >= 0) return hex(Color[n])
-    return hex(Color[reserva])
+    if (["foreground", "background", "accent", "muted", "urgent"].indexOf(n) >= 0) return hex(Commons.Color[n])
+    return hex(Commons.Color[reserva])
   }
 
   // inverter troca tinta e papel, em qualquer paleta.
