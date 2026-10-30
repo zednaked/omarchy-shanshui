@@ -38,7 +38,7 @@ Panel {
     var trecho = " · " + t("trecho ", "scroll ") + (Paisagem.kFrente + 1)
     if (Paisagem.pausado) return t("pausado", "paused") + trecho
     if (Paisagem.encoberto) return t("esperando (tela cheia)", "waiting (fullscreen)") + trecho
-    if (!Paisagem.pronta(Paisagem.kFrente)) return t("preparando o papel", "preparing the paper") + trecho
+    if (!Paisagem.prontaFrente()) return t("preparando o papel", "preparing the paper") + trecho
     return t("pintando", "painting") + trecho
   }
 
@@ -222,6 +222,28 @@ Panel {
             checked: Paisagem.invertido
             foreground: root.fg
             onToggled: Paisagem.definir({ inverter: !Paisagem.invertido })
+          }
+        }
+
+        Item {
+          width: parent.width
+          implicitHeight: profundidade.implicitHeight
+
+          Text {
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: Paisagem.t("Profundidade (paralaxe)", "Depth (parallax)")
+            color: root.fg
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+          }
+          ToggleSwitch {
+            id: profundidade
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            checked: Paisagem.camadas > 1
+            foreground: root.fg
+            onToggled: Paisagem.definir({ profundidade: Paisagem.camadas === 1 })
           }
         }
 

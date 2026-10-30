@@ -92,6 +92,11 @@ Clique no 山 da barra:
   Trocar de tema repinta na hora.
 
   ![Papel de arroz: tinta escura em papel creme, pintando da esquerda para a direita](papel.gif)
+- **Profundidade (paralaxe)**, desligada por padrão: o rolo se divide em três
+  camadas (longe, meio, perto) que andam a 30%, 60% e 100% da velocidade da
+  câmera, e as de longe desbotam um pouco em direção ao papel. Cada camada é
+  desenhada à parte, então custa cerca de três vezes o trabalho de desenho e a
+  memória das faixas; a frente de pintura continua atravessando todas no mesmo lugar.
 - **Idioma**: Português ou English.
 
 No rodapé, o crédito ao LingDong- e a assinatura.

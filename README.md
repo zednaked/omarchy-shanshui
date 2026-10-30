@@ -94,6 +94,11 @@ Click 山 in the bar:
   Changing the theme repaints instantly.
 
   ![Rice paper: dark ink on cream paper, painting left to right](papel.gif)
+- **Depth (parallax)**, off by default: the scroll splits into three layers
+  (far, middle, near) that move at 30%, 60% and 100% of the camera speed,
+  and the far ones fade a little toward the paper. Each layer is rendered on
+  its own, so it costs about three times the drawing work and memory of the
+  strips; the painting front still crosses all of them at the same place.
 - **Language**: Português or English.
 
 ## How it works
