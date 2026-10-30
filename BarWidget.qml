@@ -247,6 +247,53 @@ Panel {
           }
         }
 
+        PanelSectionHeader { text: Paisagem.t("Otimização", "Optimization"); foreground: root.fg }
+        ButtonGroup {
+          foreground: root.fg
+          focusable: false
+          options: [
+            { value: "1", label: Paisagem.t("Resolução 100%", "Resolution 100%"), tooltip: Paisagem.t("Faixas do tamanho da tela", "Strips as big as the screen") },
+            { value: "0.75", label: "75%", tooltip: Paisagem.t("Menos memória e menos tempo para pintar cada faixa", "Less memory and less time to draw each strip") },
+            { value: "0.5", label: "50%", tooltip: Paisagem.t("O mais leve; o traço fica mais macio", "The lightest; strokes get softer") }
+          ]
+          value: String(Paisagem.escalaFaixa)
+          onChanged: function(v) { Paisagem.definir({ resolucao: Number(v) }) }
+        }
+
+        Item {
+          width: parent.width
+          implicitHeight: fpsAuto.implicitHeight
+
+          Text {
+            anchors.left: parent.left
+            anchors.right: fpsAuto.left
+            anchors.rightMargin: Style.space(8)
+            elide: Text.ElideRight
+            text: Paisagem.t("Fluidez automática", "Automatic motion")
+            color: root.fg
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+          }
+          ToggleSwitch {
+            id: fpsAuto
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            checked: Paisagem.opcoes.fpsAuto !== false
+            foreground: root.fg
+            onToggled: Paisagem.definir({ fpsAuto: Paisagem.opcoes.fpsAuto === false })
+          }
+        }
+
+        Text {
+          width: parent.width
+          wrapMode: Text.WordWrap
+          text: Paisagem.t("Automática: só desenha os quadros que o movimento pede, até o máximo de Fluidez.",
+                           "Automatic: only draws the frames the motion needs, up to the Motion maximum.")
+          color: Util.alpha(root.fg, 0.55)
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+
         PanelSectionHeader { text: Paisagem.t("Idioma", "Language"); foreground: root.fg }
         ButtonGroup {
           foreground: root.fg

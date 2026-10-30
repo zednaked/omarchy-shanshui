@@ -47,11 +47,11 @@ Item {
           // Texturas do shader; nunca desenhadas direto. A ordem e amostrada
           // sem filtro: interpolar dois atrasos inventaria um terceiro.
           Image {
-            id: q; visible: false; asynchronous: true; cache: false; smooth: true
+            id: q; visible: false; asynchronous: true; cache: true; smooth: true
             source: lugar.f ? "file://" + lugar.f.quadro : ""
           }
           Image {
-            id: o; visible: false; asynchronous: true; cache: false; smooth: false
+            id: o; visible: false; asynchronous: true; cache: true; smooth: false
             source: lugar.f ? "file://" + lugar.f.ordem : ""
           }
 

@@ -49,8 +49,6 @@ float ruido(vec2 p) {
 
 void main() {
     vec2 mundo = vec2(inicio + qt_TexCoord0.x * largura, qt_TexCoord0.y * 700.0);
-    vec4 o = texture(ordem, qt_TexCoord0);
-    float cod = floor(o.r * 255.0 + 0.5) * 256.0 + floor(o.g * 255.0 + 0.5);
     // O quadro vem em cinza neutro (0 tinta, 1 papel); a cor e posta aqui,
     // entao trocar tema, paleta ou inverter nao regenera nada.
     // O quadro chega com alfa pre-multiplicado, entao o cinza (r) ja vem
@@ -59,12 +57,23 @@ void main() {
     vec3 c = tinta.rgb * q.a + (papel.rgb - tinta.rgb) * q.rgb;
     c = mix(c, papel.rgb * q.a, bruma);
 
+    // A frente e igual para a faixa toda, entao as faixas que ela ja deixou
+    // para tras (tudo pintado) ou ainda nao alcancou (nada pintado) pulam o
+    // ruido e a leitura do mapa. A folga cobre a onda (+-75) e a borda.
     float a = 1.0;
-    if (cod > 0.0) {
-        float atraso = (cod - 1.0) / 65534.0;
-        float onda = (ruido(mundo / 90.0) - 0.5) * 120.0 + (ruido(mundo / 23.0) - 0.5) * 30.0;
-        float quando = mundo.x + atraso * espalha + onda;
-        a = smoothstep(quando, quando + suave, frente);
+    if (frente < inicio + largura + espalha + suave + 120.0) {
+        vec4 o = texture(ordem, qt_TexCoord0);
+        float cod = floor(o.r * 255.0 + 0.5) * 256.0 + floor(o.g * 255.0 + 0.5);
+        if (cod > 0.0) {
+            if (frente <= inicio - 120.0) {
+                a = 0.0;
+            } else {
+                float atraso = (cod - 1.0) / 65534.0;
+                float onda = (ruido(mundo / 90.0) - 0.5) * 120.0 + (ruido(mundo / 23.0) - 0.5) * 30.0;
+                float quando = mundo.x + atraso * espalha + onda;
+                a = smoothstep(quando, quando + suave, frente);
+            }
+        }
     }
     // Sobre o papel (so na camada de tras) ou sobre o nada.
     vec4 cor = vec4(c * a, q.a * a);

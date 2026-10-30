@@ -65,6 +65,8 @@ Singleton {
     papel: "background",
     inverter: false,
     profundidade: false,  // camadas em velocidades diferentes (paralaxe)
+    resolucao: 1,         // tamanho das faixas em relacao a tela (1, 0.75, 0.5)
+    fpsAuto: true,        // fps so o que o movimento pede, no maximo o de cima
     idioma: "auto"        // "auto" (lingua do sistema), "pt" ou "en"
   })
   property var opcoes: padrao
@@ -120,7 +122,12 @@ Singleton {
     }
     return Qt.size(w, h)
   }
-  readonly property real larguraVista: 700 * tela.width / Math.max(1, tela.height)
+  // Tamanho das faixas: a tela vezes a resolucao. A vista do mundo segue as
+  // proporcoes da faixa, entao as faixas vizinhas casam mesmo com o arredondamento.
+  readonly property real escalaFaixa: numero(opcoes.resolucao, 0.4, 1, 1)
+  readonly property size faixaTam: Qt.size(Math.max(64, Math.round(tela.width * escalaFaixa)),
+                                           Math.max(64, Math.round(tela.height * escalaFaixa)))
+  readonly property real larguraVista: 700 * faixaTam.width / faixaTam.height
 
   function numero(v, min, max, reserva) {
     var n = Number(v)
@@ -147,7 +154,7 @@ Singleton {
   // Tudo que muda o desenho de uma faixa; tambem e o nome do arquivo. As
   // cores nao entram: a faixa e cinza e o shader pinta com tinta e papel.
   function chave(c, k) {
-    return [semente, k, tela.width + "x" + tela.height].join("_") + (camadas > 1 ? "_c" + c : "")
+    return [semente, k, faixaTam.width + "x" + faixaTam.height].join("_") + (camadas > 1 ? "_c" + c : "")
   }
 
   function faixa(c, k) {
@@ -216,7 +223,8 @@ Singleton {
     geradorProc.command = [
       "/usr/bin/nice", "-n", "19"].concat(node, [gerador, "faixa",
       "--dir", cacheDir, "--seed", semente, "--k", String(k),
-      "--w", String(tela.width), "--h", String(tela.height), "--ordem-escala", "0.5"],
+      "--w", String(faixaTam.width), "--h", String(faixaTam.height),
+      "--ordem-escala", String(Math.min(1, 0.5 / escalaFaixa))],
       camadas > 1 ? ["--camada", cs.join(",")] : [])
     pendentes = alvos.map(function(a) { return a.chave })
     gerando = true
@@ -316,10 +324,21 @@ Singleton {
     environment: root.ambiente
   }
 
+  // Quadros por segundo: o do menu e o maximo. Com fpsAuto, so o que o
+  // movimento pede (um pixel por quadro, no minimo 2): a 5 min por tela a
+  // frente anda ~6 px/s, e 12 quadros por segundo desenhariam o mesmo pixel
+  // duas vezes. A abertura, que corre, usa o maximo.
+  readonly property real fpsMax: numero(opcoes.fps, 1, 60, 12)
+  readonly property real fpsEfetivo: {
+    if (opcoes.fpsAuto === false || frente < corridaAte) return fpsMax
+    var pxPorSeg = tela.width / (numero(opcoes.minPorTela, 0.1, 120, 5) * 60)
+    return Math.max(2, Math.min(fpsMax, pxPorSeg))
+  }
+
   property real ultimoTique: 0
   Timer {
     id: anim
-    interval: Math.round(1000 / root.numero(root.opcoes.fps, 1, 60, 12))
+    interval: Math.round(1000 / root.fpsEfetivo)
     running: root.ativo && root.carregado && !root.pausado && !root.encoberto
     repeat: true
     onRunningChanged: root.ultimoTique = Date.now()
@@ -447,7 +466,7 @@ Singleton {
         ativo: root.ativo, pausado: root.pausado, encoberto: root.encoberto,
         pronto: root.pronto, erro: root.erro, corridaAte: root.corridaAte,
         frente: root.frente, camera: root.camera, kFrente: root.kFrente,
-        larguraVista: root.larguraVista, gerando: root.gerando, pendentes: root.pendentes,
+        larguraVista: root.larguraVista, fps: root.fpsEfetivo, faixaTam: root.faixaTam, gerando: root.gerando, pendentes: root.pendentes,
         camadas: root.camadas,
         faixas: root.faixas.map(function(f) { return f ? f.c + ":" + f.k : null }), opcoes: root.opcoes
       })
