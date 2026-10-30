@@ -85,7 +85,7 @@ Singleton {
   readonly property var brumas: camadas > 1 ? [0.35, 0.15, 0] : [0]
   onCamadasChanged: { faixas = vazias(); arrumar() }
   function vazias() { return [null, null, null, null, null, null, null, null, null] }
-  property string pendente: ""
+  property var pendentes: []   // chaves das faixas sendo geradas
   property bool gerando: false
   property bool carregado: false
 
@@ -188,30 +188,37 @@ Singleton {
     if (mudou) faixas = novo
     if (gerando) return
     // Gera a mais urgente que falta: a camada de perto primeiro, e nela a
-    // faixa da frente.
+    // faixa da frente. Um processo faz o k todo: as outras camadas que
+    // tambem precisam dele saem do mesmo mundo plantado.
     for (c = camadas - 1; c >= 0; c--) {
       var kf = Math.floor(frenteDe(c) / larguraVista)
       var lista = ks[c].slice().sort(function(a, b) { return Math.abs(a - kf) - Math.abs(b - kf) })
       for (var j = 0; j < lista.length; j++) {
-        if (!pronta(c, lista[j])) { gerar(c, lista[j]); return }
+        if (pronta(c, lista[j])) continue
+        var k = lista[j]
+        var cs = []
+        for (var d = 0; d < camadas; d++) if (ks[d].indexOf(k) >= 0 && !pronta(d, k)) cs.push(d)
+        gerar(k, cs)
+        return
       }
     }
   }
 
-  function gerar(c, k) {
+  function gerar(k, cs) {
     if (!pronto || erro !== "") return
-    var ch = chave(c, k)
     // Os nomes sao montados pelo gerar.js a partir destes numeros; aqui so se
     // repete a regra para saber onde procurar.
-    var q = cacheDir + "/q_" + ch + ".png"
-    var o = cacheDir + "/o_" + ch + ".png"
-    geradorProc.alvo = { c: c, k: k, chave: ch, quadro: q, ordem: o }
+    var alvos = cs.map(function(c) {
+      var ch = chave(c, k)
+      return { c: c, k: k, chave: ch, quadro: cacheDir + "/q_" + ch + ".png", ordem: cacheDir + "/o_" + ch + ".png" }
+    })
+    geradorProc.alvos = alvos
     geradorProc.command = [
       "/usr/bin/nice", "-n", "19"].concat(node, [gerador, "faixa",
       "--dir", cacheDir, "--seed", semente, "--k", String(k),
       "--w", String(tela.width), "--h", String(tela.height), "--ordem-escala", "0.5"],
-      camadas > 1 ? ["--camada", String(c)] : [])
-    pendente = ch
+      camadas > 1 ? ["--camada", cs.join(",")] : [])
+    pendentes = alvos.map(function(a) { return a.chave })
     gerando = true
     geradorProc.running = true
   }
@@ -264,15 +271,15 @@ Singleton {
 
   Process {
     id: geradorProc
-    property var alvo: null
+    property var alvos: []
     clearEnvironment: true
     environment: root.ambiente
     stderr: StdioCollector { id: erroGerador }
     onExited: function(codigo) {
       root.gerando = false
-      root.pendente = ""
+      root.pendentes = []
       if (codigo === 0) {
-        root.colocar(alvo)
+        for (var i = 0; i < alvos.length; i++) root.colocar(alvos[i])
         root.limpar()
       } else {
         // 3: falta o rsvg-convert. Outro erro: tenta de novo no proximo
@@ -298,7 +305,7 @@ Singleton {
     if (!pronto || limparProc.running) return
     var manter = []
     for (var i = 0; i < faixas.length; i++) if (faixas[i]) manter.push("q_" + faixas[i].chave + ".png", "o_" + faixas[i].chave + ".png")
-    if (pendente) manter.push("q_" + pendente + ".png", "o_" + pendente + ".png")
+    for (i = 0; i < pendentes.length; i++) manter.push("q_" + pendentes[i] + ".png", "o_" + pendentes[i] + ".png")
     limparProc.command = node.concat([gerador, "limpar", "--dir", cacheDir, "--manter", manter.join(",")])
     limparProc.running = true
   }
@@ -440,7 +447,7 @@ Singleton {
         ativo: root.ativo, pausado: root.pausado, encoberto: root.encoberto,
         pronto: root.pronto, erro: root.erro, corridaAte: root.corridaAte,
         frente: root.frente, camera: root.camera, kFrente: root.kFrente,
-        larguraVista: root.larguraVista, gerando: root.gerando, pendente: root.pendente,
+        larguraVista: root.larguraVista, gerando: root.gerando, pendentes: root.pendentes,
         camadas: root.camadas,
         faixas: root.faixas.map(function(f) { return f ? f.c + ":" + f.k : null }), opcoes: root.opcoes
       })

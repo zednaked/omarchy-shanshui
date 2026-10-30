@@ -4,8 +4,9 @@
 //   node gerar.js faixa --dir <cache> --seed 42 --k 3 --w 2560 --h 1440
 //       grava q_<seed>_<k>_<w>x<h>.png (o quadro, em cinza: 0 tinta, 1 papel)
 //       e o_<...>.png (o mapa de atraso de cada pixel) em <cache>
-//       com --camada 0|1|2 (0 longe, 2 perto) grava so essa camada de
-//       profundidade, com fundo transparente; sem ela, tudo junto sobre papel
+//       com --camada 0|1|2 (0 longe, 2 perto), ou varias ("0,1,2"), grava so
+//       essas camadas de profundidade, com fundo transparente, e planta o
+//       mundo uma vez so para todas; sem ela, tudo junto sobre papel
 //   node gerar.js limpar --dir <cache> --manter q_...png,o_...png
 //       apaga as faixas que nao estao na lista
 //   node gerar.js preparar --dir <a> --dir <b>
@@ -212,15 +213,9 @@ function desenhar(seed, cursor, W, H, opcoes) {
   MEM.xmin = MEM.xmax = start;
   chunkloader(start + CW, cursor + viewW + 600);
 
-  let body = "";
-  const visiveis = [];
-  for (const c of MEM.chunks) {
-    if (c.x > cursor - 1600 && c.x < cursor + viewW + 600) {
-      if (opcoes.camada !== undefined && camadaDe(c) !== opcoes.camada) continue;
-      body += c.canv;
-      visiveis.push(c);
-    }
-  }
+  const visiveis = MEM.chunks.filter((c) => c.x > cursor - 1600 && c.x < cursor + viewW + 600);
+  // Os tracos de uma camada (c indefinido: todos), na ordem de desenho.
+  const daCamada = (c) => (c === undefined ? visiveis : visiveis.filter((v) => camadaDe(v) === c));
 
   const ink = hex(opcoes.ink, "000000");
   const paper = hex(opcoes.paper, "ffffff");
@@ -231,7 +226,7 @@ function desenhar(seed, cursor, W, H, opcoes) {
     const c = ink.map((v, i) => Math.round(v + (paper[i] - v) * t));
     return alpha === undefined ? `rgb(${c})` : `rgba(${c},${alpha})`;
   }
-  body = body
+  const pintar = (corpo) => corpo
     .replace(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)/g,
       (_, r, g, b, al) => mix(+r, +g, +b, al))
     .replace(/:\s*white\b/g, ":" + mix(255, 255, 255))
@@ -285,19 +280,24 @@ function desenhar(seed, cursor, W, H, opcoes) {
     });
   }
 
+  // O mundo e plantado uma vez so; daqui saem quantas camadas se quiser.
   return {
     // Camada solta: sem papel, o que nao tem traco fica transparente.
-    quadro: envolver(body, opcoes.camada === undefined ? `rgb(${paper})` : "", !!opcoes.grain),
+    quadro: (c) => envolver(pintar(daCamada(c).map((v) => v.canv).join("")),
+      c === undefined ? `rgb(${paper})` : "", !!opcoes.grain),
     // Sem antialias: borda misturada viraria um instante que nao existe.
-    ordem: () => envolver(visiveis.map(ordemDe).join(""), "rgb(0,0,0)", false,
+    ordem: (c) => envolver(daCamada(c).map(ordemDe).join(""), "rgb(0,0,0)", false,
       'shape-rendering="crispEdges" text-rendering="optimizeSpeed"'),
   };
 }
 
 // ---- comandos
 
-function camada(v) {
-  return v === undefined ? undefined : inteiro(v, 0, 2, "camada");
+// --camada: sem ela, tudo junto; "0", "2" ou "0,1,2" (camadas, 0 longe, 2 perto).
+function camadas(v) {
+  if (v === undefined) return [undefined];
+  const l = String(v).split(",").map((x) => inteiro(x, 0, 2, "camada"));
+  return [...new Set(l)];
 }
 
 function nomes(seed, k, W, H, c) {
@@ -312,21 +312,28 @@ function cmdFaixa(a) {
   const H = inteiro(a.h, 64, 16384, "altura");
   const escala = Math.min(1, Math.max(0.1, Number(a["ordem-escala"] || 0.5)));
   const dfd = abrirPasta(String(a.dir || ""), true);
-  const c = camada(a.camada);
-  const n = nomes(seed, k, W, H, c);
-  // Faixa ja pintada antes (mesmo nome = mesma semente, k e tamanho).
-  if (existeValido(dfd, n.q) && existeValido(dfd, n.o)) {
-    process.stdout.write(n.q + " " + n.o + "\n");
-    return;
+  // Faixa ja pintada antes (mesmo nome = mesma semente, k, camada e tamanho)
+  // fica como esta; as outras saem de um mundo plantado uma vez so.
+  const falta = camadas(a.camada).filter((c) => {
+    const n = nomes(seed, k, W, H, c);
+    return !(existeValido(dfd, n.q) && existeValido(dfd, n.o));
+  });
+  if (falta.length) {
+    const cursor = (k * VIEW_H * W) / H;
+    const d = desenhar(seed, cursor, W, H, { grain: false });
+    for (const c of falta) {
+      const n = nomes(seed, k, W, H, c);
+      const q = rasterizar(d.quadro(c), W, H);
+      const o = rasterizar(d.ordem(c), Math.round(W * escala), Math.round(H * escala));
+      gravar(dfd, n.o, o);
+      gravar(dfd, n.q, q);
+    }
   }
-  const cursor = (k * VIEW_H * W) / H;
-  const d = desenhar(seed, cursor, W, H, { grain: false, camada: c });
-  const q = rasterizar(d.quadro, W, H);
-  const o = rasterizar(d.ordem(), Math.round(W * escala), Math.round(H * escala));
-  gravar(dfd, n.o, o);
-  gravar(dfd, n.q, q);
   fs.closeSync(dfd);
-  process.stdout.write(n.q + " " + n.o + "\n");
+  for (const c of camadas(a.camada)) {
+    const n = nomes(seed, k, W, H, c);
+    process.stdout.write(n.q + " " + n.o + "\n");
+  }
 }
 
 const NOME_FAIXA = /^[qo]_[0-9]{1,20}_-?[0-9]{1,8}_[0-9]{2,5}x[0-9]{2,5}(_c[0-2])?\.png$/;
@@ -358,8 +365,9 @@ function cmdPng(a) {
   const seed = semente(a.seed);
   const W = inteiro(a.w || 1920, 64, 16384, "largura");
   const H = inteiro(a.h || 1080, 64, 16384, "altura");
-  const d = desenhar(seed, Number(a.x || 0), W, H, { ink: a.ink, paper: a.paper, grain: a.grain === "1", camada: camada(a.camada) });
-  process.stdout.write(a.ordem ? rasterizar(d.ordem(), W, H) : rasterizar(d.quadro, W, H));
+  const d = desenhar(seed, Number(a.x || 0), W, H, { ink: a.ink, paper: a.paper, grain: a.grain === "1" });
+  const c = camadas(a.camada)[0];
+  process.stdout.write(a.ordem ? rasterizar(d.ordem(c), W, H) : rasterizar(d.quadro(c), W, H));
 }
 
 const a = lerArgs(process.argv);
