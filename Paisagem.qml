@@ -17,6 +17,11 @@ import qs.Commons as Commons
 //
 // Na memoria ficam as duas faixas na tela, e a terceira quando a camera se
 // aproxima dela. A frente espera se a faixa onde ela esta ainda nao existe.
+//
+// Com `profundidade` ligada o rolo vira tres camadas (longe, meio, perto),
+// cada uma com as proprias faixas e andando mais devagar quanto mais longe:
+// a camera da camada e a camera vezes o `fator` dela, e a frente de pintura
+// e convertida para o mundo da camada para ficar no mesmo lugar da tela.
 Singleton {
   id: root
 
@@ -59,6 +64,9 @@ Singleton {
     tinta: "foreground",
     papel: "background",
     inverter: false,
+    profundidade: false,  // camadas em velocidades diferentes (paralaxe)
+    resolucao: 1,         // tamanho das faixas em relacao a tela (1, 0.75, 0.5)
+    fpsAuto: true,        // fps so o que o movimento pede, no maximo o de cima
     idioma: "auto"        // "auto" (lingua do sistema), "pt" ou "en"
   })
   property var opcoes: padrao
@@ -68,10 +76,18 @@ Singleton {
   property string semente: ""
   property real frente: 0
 
-  // Tres lugares fixos (as janelas se ligam por indice, entao uma faixa nao
-  // recarrega quando outra muda). Cada um: null ou { k, chave, quadro, ordem }.
-  property var faixas: [null, null, null]
-  property string pendente: ""
+  // Tres lugares fixos por camada (as janelas se ligam por indice, entao uma
+  // faixa nao recarrega quando outra muda): camada c usa os lugares 3c..3c+2.
+  // Cada um: null ou { c, k, chave, quadro, ordem }.
+  property var faixas: vazias()
+  readonly property int camadas: opcoes.profundidade === true ? 3 : 1
+  // Quanto a camada anda em relacao a camera (a de perto, a ultima, e 1), e
+  // quanto ela desbota em direcao ao papel.
+  readonly property var fatores: camadas > 1 ? [0.3, 0.6, 1] : [1]
+  readonly property var brumas: camadas > 1 ? [0.35, 0.15, 0] : [0]
+  onCamadasChanged: { faixas = vazias(); arrumar() }
+  function vazias() { return [null, null, null, null, null, null, null, null, null] }
+  property var pendentes: []   // chaves das faixas sendo geradas
   property bool gerando: false
   property bool carregado: false
 
@@ -81,6 +97,8 @@ Singleton {
   // Abertura: ate aqui a frente corre (uma tela em poucos segundos).
   property real corridaAte: -1
   readonly property int kFrente: Math.max(0, Math.floor(frente / larguraVista))
+  function cameraDe(c) { return camera * fatores[c] }
+  function frenteDe(c) { return frente - (1 - fatores[c]) * camera }
 
   // Tela cheia em todos os monitores: ninguem ve o fundo, a pintura congela.
   readonly property bool encoberto: {
@@ -104,7 +122,12 @@ Singleton {
     }
     return Qt.size(w, h)
   }
-  readonly property real larguraVista: 700 * tela.width / Math.max(1, tela.height)
+  // Tamanho das faixas: a tela vezes a resolucao. A vista do mundo segue as
+  // proporcoes da faixa, entao as faixas vizinhas casam mesmo com o arredondamento.
+  readonly property real escalaFaixa: numero(opcoes.resolucao, 0.4, 1, 1)
+  readonly property size faixaTam: Qt.size(Math.max(64, Math.round(tela.width * escalaFaixa)),
+                                           Math.max(64, Math.round(tela.height * escalaFaixa)))
+  readonly property real larguraVista: 700 * faixaTam.width / faixaTam.height
 
   function numero(v, min, max, reserva) {
     var n = Number(v)
@@ -130,60 +153,80 @@ Singleton {
 
   // Tudo que muda o desenho de uma faixa; tambem e o nome do arquivo. As
   // cores nao entram: a faixa e cinza e o shader pinta com tinta e papel.
-  function chave(k) {
-    return [semente, k, tela.width + "x" + tela.height].join("_")
+  function chave(c, k) {
+    return [semente, k, faixaTam.width + "x" + faixaTam.height].join("_") + (camadas > 1 ? "_c" + c : "")
   }
 
-  function faixa(k) {
-    for (var i = 0; i < 3; i++) if (faixas[i] && faixas[i].k === k) return faixas[i]
+  function faixa(c, k) {
+    for (var i = 3 * c; i < 3 * c + 3; i++) if (faixas[i] && faixas[i].k === k) return faixas[i]
     return null
   }
 
-  function pronta(k) {
-    var f = faixa(k)
-    return f !== null && f.chave === chave(k)
+  function pronta(c, k) {
+    var f = faixa(c, k)
+    return f !== null && f.chave === chave(c, k)
   }
+
+  // A faixa onde a frente esta, na camada de perto: e ela que a frente espera.
+  function prontaFrente() { return pronta(camadas - 1, kFrente) }
 
   // ---- o que precisa estar na memoria
 
-  function necessarias() {
-    var kc = Math.floor(camera / larguraVista)
+  function necessarias(c) {
+    var cam = cameraDe(c)
+    var kc = Math.floor(cam / larguraVista)
     var ks = [kc, kc + 1]
-    if (camera - kc * larguraVista > 0.5 * larguraVista) ks.push(kc + 2)
+    if (cam - kc * larguraVista > 0.5 * larguraVista) ks.push(kc + 2)
     return ks.filter(function(k) { return k >= 0 })
   }
 
   function arrumar() {
     if (!carregado || !ativo || !pronto) return
-    var ks = necessarias()
     // Solta o que saiu da tela. Faixa com cor velha fica ate a nova chegar.
     var novo = faixas.slice()
     var mudou = false
-    for (var i = 0; i < 3; i++) {
-      if (novo[i] && ks.indexOf(novo[i].k) < 0) { novo[i] = null; mudou = true }
+    var ks = []
+    for (var c = 0; c < camadas; c++) {
+      ks.push(necessarias(c))
+      for (var i = 3 * c; i < 3 * c + 3; i++) {
+        if (novo[i] && ks[c].indexOf(novo[i].k) < 0) { novo[i] = null; mudou = true }
+      }
     }
     if (mudou) faixas = novo
     if (gerando) return
-    // Gera a mais urgente que falta: a da frente primeiro.
-    ks.sort(function(a, b) { return Math.abs(a - kFrente) - Math.abs(b - kFrente) })
-    for (var j = 0; j < ks.length; j++) {
-      if (!pronta(ks[j])) { gerar(ks[j]); return }
+    // Gera a mais urgente que falta: a camada de perto primeiro, e nela a
+    // faixa da frente. Um processo faz o k todo: as outras camadas que
+    // tambem precisam dele saem do mesmo mundo plantado.
+    for (c = camadas - 1; c >= 0; c--) {
+      var kf = Math.floor(frenteDe(c) / larguraVista)
+      var lista = ks[c].slice().sort(function(a, b) { return Math.abs(a - kf) - Math.abs(b - kf) })
+      for (var j = 0; j < lista.length; j++) {
+        if (pronta(c, lista[j])) continue
+        var k = lista[j]
+        var cs = []
+        for (var d = 0; d < camadas; d++) if (ks[d].indexOf(k) >= 0 && !pronta(d, k)) cs.push(d)
+        gerar(k, cs)
+        return
+      }
     }
   }
 
-  function gerar(k) {
+  function gerar(k, cs) {
     if (!pronto || erro !== "") return
-    var c = chave(k)
     // Os nomes sao montados pelo gerar.js a partir destes numeros; aqui so se
     // repete a regra para saber onde procurar.
-    var q = cacheDir + "/q_" + c + ".png"
-    var o = cacheDir + "/o_" + c + ".png"
-    geradorProc.alvo = { k: k, chave: c, quadro: q, ordem: o }
+    var alvos = cs.map(function(c) {
+      var ch = chave(c, k)
+      return { c: c, k: k, chave: ch, quadro: cacheDir + "/q_" + ch + ".png", ordem: cacheDir + "/o_" + ch + ".png" }
+    })
+    geradorProc.alvos = alvos
     geradorProc.command = [
       "/usr/bin/nice", "-n", "19"].concat(node, [gerador, "faixa",
       "--dir", cacheDir, "--seed", semente, "--k", String(k),
-      "--w", String(tela.width), "--h", String(tela.height), "--ordem-escala", "0.5"])
-    pendente = c
+      "--w", String(faixaTam.width), "--h", String(faixaTam.height),
+      "--ordem-escala", String(Math.min(1, 0.5 / escalaFaixa))],
+      camadas > 1 ? ["--camada", cs.join(",")] : [])
+    pendentes = alvos.map(function(a) { return a.chave })
     gerando = true
     geradorProc.running = true
   }
@@ -191,10 +234,10 @@ Singleton {
   function colocar(a) {
     var novo = faixas.slice()
     var lugar = -1
-    for (var i = 0; i < 3; i++) if (novo[i] && novo[i].k === a.k) lugar = i
-    if (lugar < 0) for (i = 0; i < 3; i++) if (!novo[i]) { lugar = i; break }
+    for (var i = 3 * a.c; i < 3 * a.c + 3; i++) if (novo[i] && novo[i].k === a.k) lugar = i
+    if (lugar < 0) for (i = 3 * a.c; i < 3 * a.c + 3; i++) if (!novo[i]) { lugar = i; break }
     if (lugar < 0) return
-    novo[lugar] = { k: a.k, chave: a.chave, quadro: a.quadro, ordem: a.ordem }
+    novo[lugar] = { c: a.c, k: a.k, chave: a.chave, quadro: a.quadro, ordem: a.ordem }
     faixas = novo
   }
 
@@ -205,7 +248,7 @@ Singleton {
     semente = String(Date.now())
     frente = 0
     corridaAte = numero(opcoes.frenteNaTela, 0.3, 1.2, 1.0) * larguraVista
-    faixas = [null, null, null]
+    faixas = vazias()
     salvar()
     arrumar()
   }
@@ -236,15 +279,15 @@ Singleton {
 
   Process {
     id: geradorProc
-    property var alvo: null
+    property var alvos: []
     clearEnvironment: true
     environment: root.ambiente
     stderr: StdioCollector { id: erroGerador }
     onExited: function(codigo) {
       root.gerando = false
-      root.pendente = ""
+      root.pendentes = []
       if (codigo === 0) {
-        root.colocar(alvo)
+        for (var i = 0; i < alvos.length; i++) root.colocar(alvos[i])
         root.limpar()
       } else {
         // 3: falta o rsvg-convert. Outro erro: tenta de novo no proximo
@@ -269,8 +312,8 @@ Singleton {
   function limpar() {
     if (!pronto || limparProc.running) return
     var manter = []
-    for (var i = 0; i < 3; i++) if (faixas[i]) manter.push("q_" + faixas[i].chave + ".png", "o_" + faixas[i].chave + ".png")
-    if (pendente) manter.push("q_" + pendente + ".png", "o_" + pendente + ".png")
+    for (var i = 0; i < faixas.length; i++) if (faixas[i]) manter.push("q_" + faixas[i].chave + ".png", "o_" + faixas[i].chave + ".png")
+    for (i = 0; i < pendentes.length; i++) manter.push("q_" + pendentes[i] + ".png", "o_" + pendentes[i] + ".png")
     limparProc.command = node.concat([gerador, "limpar", "--dir", cacheDir, "--manter", manter.join(",")])
     limparProc.running = true
   }
@@ -281,10 +324,21 @@ Singleton {
     environment: root.ambiente
   }
 
+  // Quadros por segundo: o do menu e o maximo. Com fpsAuto, so o que o
+  // movimento pede (um pixel por quadro, no minimo 2): a 5 min por tela a
+  // frente anda ~6 px/s, e 12 quadros por segundo desenhariam o mesmo pixel
+  // duas vezes. A abertura, que corre, usa o maximo.
+  readonly property real fpsMax: numero(opcoes.fps, 1, 60, 12)
+  readonly property real fpsEfetivo: {
+    if (opcoes.fpsAuto === false || frente < corridaAte) return fpsMax
+    var pxPorSeg = tela.width / (numero(opcoes.minPorTela, 0.1, 120, 5) * 60)
+    return Math.max(2, Math.min(fpsMax, pxPorSeg))
+  }
+
   property real ultimoTique: 0
   Timer {
     id: anim
-    interval: Math.round(1000 / root.numero(root.opcoes.fps, 1, 60, 12))
+    interval: Math.round(1000 / root.fpsEfetivo)
     running: root.ativo && root.carregado && !root.pausado && !root.encoberto
     repeat: true
     onRunningChanged: root.ultimoTique = Date.now()
@@ -293,7 +347,7 @@ Singleton {
       var dt = Math.min(1, (agora - root.ultimoTique) / 1000)
       root.ultimoTique = agora
       // A frente so anda sobre papel que ja existe.
-      if (!root.pronta(root.kFrente)) return
+      if (!root.prontaFrente()) return
       var v = root.larguraVista / (root.numero(root.opcoes.minPorTela, 0.1, 120, 5) * 60)
       if (root.frente < root.corridaAte) v = Math.max(v, root.larguraVista / 4)
       else root.corridaAte = -1
@@ -412,8 +466,9 @@ Singleton {
         ativo: root.ativo, pausado: root.pausado, encoberto: root.encoberto,
         pronto: root.pronto, erro: root.erro, corridaAte: root.corridaAte,
         frente: root.frente, camera: root.camera, kFrente: root.kFrente,
-        larguraVista: root.larguraVista, gerando: root.gerando, pendente: root.pendente,
-        faixas: root.faixas.map(function(f) { return f ? f.k : null }), opcoes: root.opcoes
+        larguraVista: root.larguraVista, fps: root.fpsEfetivo, faixaTam: root.faixaTam, gerando: root.gerando, pendentes: root.pendentes,
+        camadas: root.camadas,
+        faixas: root.faixas.map(function(f) { return f ? f.c + ":" + f.k : null }), opcoes: root.opcoes
       })
     }
   }

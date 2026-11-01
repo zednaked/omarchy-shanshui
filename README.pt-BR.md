@@ -92,6 +92,20 @@ Clique no 山 da barra:
   Trocar de tema repinta na hora.
 
   ![Papel de arroz: tinta escura em papel creme, pintando da esquerda para a direita](papel.gif)
+- **Otimização**:
+  - **Resolução** (100%, 75%, 50%): tamanho das faixas em relação à tela. Menor
+    é um pouco menos memória e tempo de desenho (cerca de 5% da memória do
+    shell e 10% do tempo de uma faixa a 75%, medido), com o traço mais macio.
+    Padrão 100%.
+  - **Fluidez automática** (ligada por padrão): só desenha os quadros que o
+    movimento pede, um pixel por quadro e no mínimo 2 fps, nunca acima da
+    Fluidez escolhida. A 5 min por tela são uns 6 fps em vez de 12; a abertura
+    e as velocidades rápidas usam a taxa cheia.
+- **Profundidade (paralaxe)**, desligada por padrão: o rolo se divide em três
+  camadas (longe, meio, perto) que andam a 30%, 60% e 100% da velocidade da
+  câmera, e as de longe desbotam um pouco em direção ao papel. Cada camada é
+  desenhada à parte, então custa cerca de três vezes o trabalho de desenho e a
+  memória das faixas; a frente de pintura continua atravessando todas no mesmo lugar.
 - **Idioma**: Português ou English.
 
 No rodapé, o crédito ao LingDong- e a assinatura.

@@ -84,7 +84,8 @@ Click 山 in the bar:
 - **Speed**, as the time the front takes to cross one screen: 10 min, 5 min,
   2 min, 1 min, 30 s, 15 s.
 - **Motion**: Light (6 fps), Normal (12 fps), Smooth (24 fps). This is the
-  main cost. Fast speeds look best with Smooth.
+  main cost, and the maximum: see *Automatic motion* below. Fast speeds look
+  best with Smooth.
 - **Colors**:
   - **Theme**: the theme's foreground on its background.
   - **Accent**: the accent color on the background.
@@ -94,6 +95,20 @@ Click 山 in the bar:
   Changing the theme repaints instantly.
 
   ![Rice paper: dark ink on cream paper, painting left to right](papel.gif)
+- **Optimization**:
+  - **Resolution** (100%, 75%, 50%): size of the strips relative to the
+    screen. Lower is a little less memory and drawing time (about 5% of the
+    shell's memory and 10% of a strip's time at 75%, measured), with softer
+    strokes. Default 100%.
+  - **Automatic motion** (on by default): draws only the frames the motion
+    needs, one pixel per frame and at least 2 fps, never above the Motion
+    setting. At 5 min per screen that is about 6 fps instead of 12; the opening
+    run and fast speeds still use the full rate.
+- **Depth (parallax)**, off by default: the scroll splits into three layers
+  (far, middle, near) that move at 30%, 60% and 100% of the camera speed,
+  and the far ones fade a little toward the paper. Each layer is rendered on
+  its own, so it costs about three times the drawing work and memory of the
+  strips; the painting front still crosses all of them at the same place.
 - **Language**: Português or English.
 
 ## How it works
