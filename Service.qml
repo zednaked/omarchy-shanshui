@@ -7,6 +7,11 @@ import Quickshell.Wayland
 // continua respondendo. Desligar so esconde a camada; o wallpaper nunca e
 // tocado.
 //
+// O tema pulse tem o seu proprio wallpaper opaco nessa mesma camada. Uma
+// superficie nova entra por baixo das que ja la estao, por isso esta pintura
+// ficava sempre por cima e o Pulse parecia parado. Enquanto o tema for pulse
+// a pintura sai.
+//
 // Cada janela tem tres lugares fixos, um por faixa carregada; cada faixa e um
 // ShaderEffect posto na tela conforme a camera.
 Item {
@@ -21,7 +26,7 @@ Item {
       required property var modelData
 
       screen: modelData
-      visible: Paisagem.ativo
+      visible: Paisagem.ativo && !Paisagem.temaPulse
       anchors { top: true; bottom: true; left: true; right: true }
       color: Paisagem.papelAtual
       exclusionMode: ExclusionMode.Ignore

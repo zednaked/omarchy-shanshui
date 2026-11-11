@@ -65,6 +65,22 @@ Singleton {
 
   property bool ativo: true
   property bool pausado: false
+
+  // O wallpaper ao vivo do tema pulse ocupa a mesma camada. Enquanto esse
+  // tema estiver posto, a pintura sai para nao o cobrir. Comeca escondida
+  // para nao cobrir o Pulse no instante em que o ficheiro ainda nao foi lido.
+  property string themeName: "pulse"
+  readonly property bool temaPulse: themeName === "pulse"
+  FileView {
+    id: themeNameFile
+    path: root.home + "/.local/state/omarchy/current/theme.name"
+    watchChanges: true
+    blockLoading: true
+    printErrors: false
+    onLoaded: root.themeName = String(text() || "").trim()
+    onFileChanged: root.themeName = String(text() || "").trim()
+    onLoadFailed: root.themeName = ""
+  }
   property string semente: ""
   property real frente: 0
 
